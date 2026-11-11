@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>SPEED GAME — Jeux de voiture</title>
+<style>
+:root{--bg:#080d1c;--panel:#111b32;--cyan:#35e0ff;--orange:#ff9b3d;--white:#f4f7ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -20%,#243b72 0,#080d1c 55%);color:var(--white);font-family:Arial,sans-serif}
+header{padding:22px 16px 14px;text-align:center}h1{font-size:clamp(34px,8vw,62px);margin:4px 0;color:var(--cyan);font-weight:1000;letter-spacing:2px;text-shadow:0 0 24px #20bde477}header p{margin:5px;color:#b9c8e8}
+main{max-width:1050px;margin:auto;padding:12px 14px 35px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.card{background:linear-gradient(145deg,#172747,#10182b);border:1px solid #32486e;border-radius:18px;padding:17px;box-shadow:0 12px 28px #0005}
+.art{height:115px;border-radius:12px;display:grid;place-items:center;font-size:60px;background:linear-gradient(135deg,#164a69,#242d62);margin-bottom:12px}
+.card h2{margin:6px 0}.card p{color:#b7c5df;min-height:40px;line-height:1.4}
+button{border:0;border-radius:12px;padding:12px 16px;font-weight:800;background:var(--cyan);color:#061322;cursor:pointer;font-size:15px}
+button.secondary{background:#263957;color:white;border:1px solid #496184}
+#gameArea{display:none;background:#101a30;border:1px solid #33496e;border-radius:18px;padding:12px;margin-top:18px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+canvas{display:block;width:100%;max-width:900px;height:auto;aspect-ratio:16/9;background:#15243a;border-radius:12px;margin:auto;touch-action:none}
+.hint{text-align:center;color:#c5d3ec;font-size:14px;line-height:1.5;margin:10px 0}
+.controls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.pad{display:grid;grid-template-columns:repeat(3,55px);grid-template-rows:repeat(2,48px);gap:5px;justify-content:center;margin:12px auto 2px}
+.pad button{padding:4px;background:#263957;color:#fff;border:1px solid #527096;touch-action:none}
+.pad button:nth-child(1){grid-column:2}.pad button:nth-child(2){grid-column:1;grid-row:2}.pad button:nth-child(3){grid-column:2;grid-row:2}.pad button:nth-child(4){grid-column:3;grid-row:2}
+footer{text-align:center;color:#8294b6;padding:18px;font-size:12px}
+</style></head>
+<body>
+<header><h1>SPEED GAME</h1><p>Choisis ta voiture. Lance le moteur. À toi de jouer !</p></header>
+<main>
+<section class="cards" id="menu">
+ <article class="card"><div class="art">⚽🚙</div><h2>Speed Rocket</h2><p>Conduis une voiture et marque des buts dans une arène.</p><button onclick="start('rocket')">Jouer</button></article>
+ <article class="card"><div class="art">🏁🏎️</div><h2>Speed Racing</h2><p>Évite le trafic, accélère et essaie de battre ton record.</p><button onclick="start('race')">Jouer</button></article>
+ <article class="card"><div class="art">💨🚗</div><h2>Speed Drift</h2><p>Enchaîne les virages et marque des points de drift.</p><button onclick="start('drift')">Jouer</button></article>
+</section>
+<section id="gameArea"><div class="topbar"><button class="secondary" onclick="back()">← Menu</button><strong id="gameTitle">Jeu</strong><strong id="score">Score : 0</strong></div>
+<canvas id="c" width="960" height="540"></canvas><p class="hint" id="hint"></p>
+<div class="pad" aria-label="Commandes tactiles"><button data-key="ArrowUp">▲</button><button data-key="ArrowLeft">◀</button><button data-key="ArrowDown">▼</button><button data-key="ArrowRight">▶</button></div>
+<div class="controls"><button class="secondary" onclick="resetGame()">Recommencer</button></div></section>
+</main><footer>Prototype original SPEED GAME • Créé pour jouer dans le navigateur</footer>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');let mode='',score=0,keys={},raf=0,car,ball,obstacles=[],ticks=0,drift=0;
+const W=960,H=540;
+function start(m){mode=m;document.getElementById('menu').style.display='none';document.getElementById('gameArea').style.display='block';document.getElementById('gameTitle').textContent={rocket:'SPEED ROCKET',race:'SPEED RACING',drift:'SPEED DRIFT'}[m];document.getElementById('hint').textContent=m==='rocket'?'Flèches ou boutons : conduis la voiture et pousse le ballon dans le but en haut !':m==='race'?'← → pour changer de voie, ↑ pour accélérer. Évite les autres voitures !':'← → pour tourner, ↑ pour avancer. Garde le contrôle pour faire monter ton score !';resetGame()}
+function back(){cancelAnimationFrame(raf);document.getElementById('gameArea').style.display='none';document.getElementById('menu').style.display='grid'}
+function resetGame(){cancelAnimationFrame(raf);score=0;ticks=0;drift=0;obstacles=[];car={x:480,y:390,vx:0,vy:0,a:0};ball={x:480,y:170,vx:0,vy:0};loop()}
+function text(t,x,y,size=24,color='white'){ctx.fillStyle=color;ctx.font='bold '+size+'px Arial';ctx.textAlign='center';ctx.fillText(t,x,y)}
+function rounded(x,y,w,h,r,color){ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
+function drawCar(x,y,a,color='#35e0ff'){ctx.save();ctx.translate(x,y);ctx.rotate(a);rounded(-19,-30,38,60,10,color);rounded(-13,-19,26,20,5,'#14233c');ctx.fillStyle='#101725';ctx.fillRect(-23,-20,7,16);ctx.fillRect(16,-20,7,16);ctx.fillRect(-23,12,7,16);ctx.fillRect(16,12,7,16);ctx.restore()}
+function loop(){ticks++;ctx.clearRect(0,0,W,H);
+ if(mode==='rocket')rocket();if(mode==='race')race();if(mode==='drift')drifting();
+ document.getElementById('score').textContent='Score : '+Math.floor(score);raf=requestAnimationFrame(loop)}
+function rocket(){
+ ctx.fillStyle='#174b45';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#a9e8b6';ctx.lineWidth=4;ctx.strokeRect(35,25,890,490);ctx.beginPath();ctx.arc(480,270,85,0,Math.PI*2);ctx.stroke();ctx.strokeRect(340,25,280,55);ctx.strokeRect(340,460,280,55);
+ ctx.fillStyle='#e9f5ff';ctx.beginPath();ctx.arc(ball.x,ball.y,18,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#27374d';ctx.lineWidth=3;ctx.stroke();
+ let ax=(keys.ArrowRight?1:0)-(keys.ArrowLeft?1:0),ay=(keys.ArrowDown?1:0)-(keys.ArrowUp?1:0);car.vx=(car.vx+ax*.42)*.985;car.vy=(car.vy+ay*.42)*.985;car.x+=car.vx;car.y+=car.vy;car.x=Math.max(60,Math.min(900,car.x));car.y=Math.max(75,Math.min(465,car.y));if(Math.hypot(car.vx,car.vy)>.4)car.a=Math.atan2(car.vy,car.vx)+Math.PI/2;drawCar(car.x,car.y,car.a);
+ let dx=ball.x-car.x,dy=ball.y-car.y,d=Math.hypot(dx,dy);if(d<43){ball.vx+=dx/(d||1)*2.8+car.vx*.55;ball.vy+=dy/(d||1)*2.8+car.vy*.55}
+ ball.x+=ball.vx;ball.y+=ball.vy;ball.vx*=.992;ball.vy*=.992;if(ball.x<55||ball.x>905)ball.vx*=-.8;if(ball.y>480)ball.vy*=-.8;
+ if(ball.y<72&&ball.x>350&&ball.x<610){score+=10;ball.x=480;ball.y=170;ball.vx=ball.vy=0;text('BUT !',480,125,42,'#ffe36b')}
+ if(ball.y<45)ball.vy=Math.abs(ball.vy);if(ball.y>495)ball.y=495;
+ text('BUT',480,58,18,'#ffe36b');
+}
+function road(){ctx.fillStyle='#253044';ctx.fillRect(180,0,600,H);ctx.fillStyle='#d8e1ed';ctx.fillRect(180,0,8,H);ctx.fillRect(772,0,8,H);ctx.strokeStyle='#8293a8';ctx.setLineDash([32,25]);ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(380,0);ctx.lineTo(380,H);ctx.moveTo(580,0);ctx.lineTo(580,H);ctx.stroke();ctx.setLineDash([])}
+function race(){ctx.fillStyle='#163c2b';ctx.fillRect(0,0,W,H);road();if(ticks%55===0)obstacles.push({x:[280,480,680][Math.floor(Math.random()*3)],y:-70});obstacles.forEach(o=>{o.y+=4+(keys.ArrowUp?2:0);drawCar(o.x,o.y,Math.PI,'#ff9b3d');if(Math.abs(o.y-car.y)<48&&Math.abs(o.x-car.x)<40){score=Math.max(0,score-1);o.y=650}});obstacles=obstacles.filter(o=>o.y<620);let target=keys.ArrowLeft?-1:keys.ArrowRight?1:0;car.x+=target*7;car.x=Math.max(280,Math.min(680,car.x));car.y=420;drawCar(car.x,car.y,0);score+=.035+(keys.ArrowUp?.06:0);text('ARRIVÉE : SURVIS LE PLUS LONGTEMPS !',480,42,20)}
+function drifting(){ctx.fillStyle='#1a4b39';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#c5d4df';ctx.lineWidth=85;ctx.beginPath();ctx.ellipse(480,270,310,185,0,0,Math.PI*2);ctx.stroke();ctx.strokeStyle='#64788a';ctx.lineWidth=3;ctx.setLineDash([18,18]);ctx.beginPath();ctx.ellipse(480,270,310,185,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+ let turn=(keys.ArrowRight?1:0)-(keys.ArrowLeft?1:0);car.a+=(turn*.045);let speed=keys.ArrowUp?3.7:1.4;car.x+=Math.sin(car.a)*speed;car.y-=Math.cos(car.a)*speed;car.x=Math.max(65,Math.min(895,car.x));car.y=Math.max(65,Math.min(475,car.y));drawCar(car.x,car.y,car.a,'#ff9b3d');if(turn&&keys.ArrowUp){drift++;score+=.12;if(ticks%18===0)score+=2}else drift=0;text('DRIFT x'+Math.min(10,Math.floor(drift/30)+1),480,48,22,'#ffe36b')}
+document.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){keys[e.key]=true;e.preventDefault()}});document.addEventListener('keyup',e=>keys[e.key]=false);
+document.querySelectorAll('.pad button').forEach(b=>{let k=b.dataset.key;b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false))});
+</script></body></html>
